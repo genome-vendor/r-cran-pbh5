@@ -241,18 +241,18 @@ isSorted  <- function(cmpH5) cmpH5@isSorted
 ## This function gets the ref elt by Name, FullName, or ID.
 ##
 .getRefElt <- function(cmpH5, refSeq, which) {
-  index <- switch(class(refSeq), "character" = {
+  index <- if (is.character(refSeq)) {
     tmp <- which(refSeq == refGroup(cmpH5)$Name)
     if (length(tmp) == 0) {
       which(refSeq == refGroup(cmpH5)$FullName)
     } else {
       tmp
     }
-  }, "numeric" = {
+  } else if (is.numeric(refSeq)) {
     which(refSeq == refGroup(cmpH5)$ID)
-  }, {
-    stop("refSeq needs to be either integer or character")
-  })
+  } else {
+    stop("refSeq needs to be either integer (ID) or character (Name or FullName).")
+  }
   if (length(index) != 1) {
     stop(paste("refSeq:", refSeq, "not found or not unique:", index))
   }
@@ -263,6 +263,9 @@ getRefPath <- function(cmpH5, refSeq) {
 }
 getRefName <- function(cmpH5, refSeq) {
   .getRefElt(cmpH5, refSeq, "Name")
+}
+getRefFullName <- function(cmpH5, refSeq) {
+  .getRefElt(cmpH5, refSeq, "FullName")
 }
 getRefLength <- function(cmpH5, refSeq) {
   .getRefElt(cmpH5, refSeq, "Length")

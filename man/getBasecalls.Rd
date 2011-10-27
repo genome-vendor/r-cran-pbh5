@@ -34,8 +34,8 @@
   \code{convert} returns).
 }
 \examples{
-basFiles <- list.files(system.file("h5_files", package = "pbh5"), pattern = "bas\\.h5", full.names = T)
-cmpFiles <- list.files(system.file("h5_files", package = "pbh5"), pattern = "cmp\\.h5", full.names = T)
+basFiles <- list.files(system.file("h5_files", package = "pbh5"), pattern = "bas", full.names = TRUE)
+cmpFiles <- list.files(system.file("h5_files", package = "pbh5"), pattern = "cmp", full.names = TRUE)
 
 ## instanteate the bas.h5 files and name them to work with some of the
 ## paired cmp.h5 bas.h5 functionality.

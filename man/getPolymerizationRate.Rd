@@ -26,11 +26,13 @@ getPolymerizationRate(cmpH5, idx = seq.int(1, nrow(cmpH5)))
 }
 
 \examples{
+  \dontrun{
   require(pbh5)
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
   package = "pbh5"))
   pRate <- getPolymerizationRate(cmpH5)
   plot(density(pRate, na.rm = TRUE), xlab = "Polymerization Rate")
+ }
 }
 \keyword{datasets}
 

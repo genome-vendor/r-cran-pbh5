@@ -26,10 +26,11 @@ getStartTime(cmpH5, idx)
   corresponds to the start time of polymerization for a particular nucleotide.
 }
 \examples{
+  \dontrun{
   require(pbh5)
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5", package = "pbh5"))
-  ## NOT RUN
-  ## getStartTime(cmpH5)
+  getStartTime(cmpH5)
+  }
 }
 \keyword{datasets}
 

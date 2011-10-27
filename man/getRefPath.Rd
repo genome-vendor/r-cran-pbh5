@@ -2,6 +2,7 @@
 \alias{getRefPath}
 \alias{getRefName}
 \alias{getRefLength}
+\alias{getRefFullName}
 \title{
   Get data from refGroup table.
 }

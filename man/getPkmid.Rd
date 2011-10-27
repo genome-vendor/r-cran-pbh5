@@ -26,12 +26,14 @@ getPkmid(cmpH5, idx)
   'getPkmid' returns a list of vectors with numeric values. 
 }
 \examples{
+  \dontrun{
   require(pbh5)
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
   package = "pbh5"))
   pkmid <- getPkmid(cmpH5, idx = 1:10)
   boxplot(pkmid,
   main = "Distribution of Pkmid values for the first ten alignments")
+ }
 }
 \keyword{datasets}
 

@@ -32,7 +32,7 @@ getAlignmentsWithFeatures(cmpH5, features, idx = seq.int(1, nrow(cmpH5)), collap
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
   package = "pbh5"))
   alnsPlusFeatures <- getAlignmentsWithFeatures(cmpH5,
-        features = c("IPD","PulseWidth", "pkmid"), idx = 1, collapse = TRUE)
+        features = c("IPD","PulseWidth"), idx = 1, collapse = TRUE)
   head(alnsPlusFeatures)
   boxplot(IPD ~ reference, data = alnsPlusFeatures, log = 'y',
            ylim = c(.05, 10), main = "Distribution of IPDs Conditioned on Base")

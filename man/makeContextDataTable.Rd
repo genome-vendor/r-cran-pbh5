@@ -65,11 +65,11 @@ summarizeByContext(cmpH5, idx = 1:nrow(cmpH5), up = 2, down = 2,
 \examples{
   ## These functions contain similar information regarding IPD.
   ## This example demonstrates that the median IPD can be computed
-     using any one of these functions. 
-
+  ## using any one of these functions. 
   require(pbh5)
-  cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
-  package = "pbh5"))
+  file <- list.files(system.file("h5_files", package = "pbh5"),  pattern =
+  "aligned_reads", full.name = TRUE)
+  cmpH5 <- PacBioCmpH5(file)
 
   summarize <-summarizeByContext(cmpH5)
   head(summarize)
