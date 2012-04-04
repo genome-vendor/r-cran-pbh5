@@ -83,11 +83,18 @@ getMachineName <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
 }
 
 getAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
-  .Call("PBR_advance_time", getStartTime(cmpH5, idx), getAlignmentsRaw(cmpH5, idx), PACKAGE = "pbh5")
+  .convertToSeconds(cmpH5, .Call("PBR_advance_time",
+                                 getStartTime(cmpH5, idx),
+                                 getAlignmentsRaw(cmpH5, idx),
+                                 PACKAGE = "pbh5"))
 }
 
 getTemplateSpan <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
   cmpH5$tEnd[idx] - cmpH5$tStart[idx] + 1
+}
+
+getAlignedLength <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
+  cmpH5$offsetEnd[idx] - cmpH5$offsetStart[idx] + 1
 }
 
 getPolymerizationRate <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
@@ -168,6 +175,20 @@ setMethod("getSNR", "PacBioCmpH5", function(h5Obj, plsH5s) {
     snr[match(cmpH5$holeNumber[idxs], getHoleNumbers(plsH5)),,drop = FALSE]
   })
 })
+
+getFrameByBaselineSNR <- function(cmpH5, plsH5s, fx = function(x) median(x, na.rm = T)) {
+  doWithPlsAndCmp(cmpH5, plsH5s, fx = function(cmpH5, plsH5, idxs) {
+    bs <- getH5Dataset(plsH5, "PulseData/PulseCalls/ZMW/BaselineSigma")[]
+    mtch <- match(cmpH5$holeNumber[idxs], plsH5@pulseEvents[,"holeNumber"])
+    channels <- sapply(0:3, function(d) {
+      getH5Attribute(getH5Group(plsH5, sprintf("ScanData/DyeSet/Analog[%d]", d)), "Base")[]
+    })
+    mapply(function(pk, cb, m) {
+      channel <- match(cb[,1], channels)
+      fx(pk/bs[m, channel])
+    }, getPkmid(cmpH5, idxs), getAlignments(cmpH5, idxs), as.list(mtch), SIMPLIFY = FALSE)
+  })
+}
 
 .narrowRegions <- function(regTable) {
   regTable <- regTable[order(regTable$holeNumber),]
@@ -381,6 +402,9 @@ getTemplatePosition <- function(cmpH5, idx = 1:nrow(cmpH5), withAlignments = FAL
 }
 
 getByTemplatePosition <- function(cmpH5, idx = 1:nrow(cmpH5), f = getIPD) {
+  if (is.list(f)) {
+    return(.getByTemplatePositionList(cmpH5, idx, f))
+  }
   tpos <- getTemplatePosition(cmpH5, idx, withAlignments = TRUE)
   dta <- f(cmpH5, idx)
   strands <- getTemplateStrand(cmpH5, idx)
@@ -391,8 +415,30 @@ getByTemplatePosition <- function(cmpH5, idx = 1:nrow(cmpH5), f = getIPD) {
   d <- lapply(1:length(c0), function(i) do.call(c, lapply(tpos, function(e) e[[i]])))
   names(d) <- c0
   d$elt <- x
-  as.data.frame(d)
+  as.data.frame(d, row.names = NULL, stringsAsFactors = FALSE)
 }
+
+.getByTemplatePositionList <- function (cmpH5, idx = 1:nrow(cmpH5),
+                                        fxs = list(IPD = getIPD, PulseWidth = getPulseWidth, refName = getFullRefNames)) {
+  tpos <- getTemplatePosition(cmpH5, idx, withAlignments = TRUE)
+  strands <- getTemplateStrand(cmpH5, idx)
+  dta <- lapply(fxs, function(f) {
+    do.call(c, mapply(strands, tpos, f(cmpH5, idx), FUN = function(s, tp, d) {
+      if (length(d) == 1) {
+        ## to allow for the possibility of scalar vals per read.
+        rep(d, length(tp[[1]]))
+      } else {
+        if (s == 0) d else d[length(d):1]
+      }
+    }, SIMPLIFY = FALSE))
+  })
+  e0 <- tpos[[1]]
+  c0 <- names(e0)
+  tpos <- lapply(1:length(c0), function(i) do.call(c, lapply(tpos, function(e) e[[i]])))
+  names(tpos) <- c0
+  as.data.frame.list(c(tpos, dta), row.names = NULL, stringsAsFactors = FALSE)
+}
+
 
 getAlignmentBlock <- function(cmpH5, ref, refStart, refEnd) {
   tpos <- getTemplatePosition(cmpH5, getReadsInRange(cmpH5, ref, refStart, refEnd), TRUE, TRUE)
@@ -435,11 +481,25 @@ getConsensusForIdxs <- function(cmpH5, idx = 1:nrow(cmpH5)) {
   getConsensusForReads(getAlignmentsRaw(cmpH5, idx), min(starts), max(ends), strands, starts, ends)
 }
 
-getConsensusInRange <- function(cmpH5, refSeq, refStart = 1, refEnd = getRefLength(cmpH5, refSeq), idx = 1:nrow(cmpH5)) {
-  idxs <- getReadsInRange(cmpH5, refSeq, refStart, refEnd, idx)
-  getConsensusForReads(getAlignmentsRaw(cmpH5, idxs), refStart, refEnd,
-                       getTemplateStrand(cmpH5, idxs), getTemplateStart(cmpH5, idxs),
-                       getTemplateEnd(cmpH5, idxs))
+getConsensusInRange <- function(cmpH5, refSeq, refStart = 1, refEnd = getRefLength(cmpH5, refSeq), idx = 1:nrow(cmpH5),
+                                blockSize = NA) {
+  if (is.na(blockSize)) {
+    idxs <- getReadsInRange(cmpH5, refSeq, refStart, refEnd, idx)
+    getConsensusForReads(getAlignmentsRaw(cmpH5, idxs), refStart, refEnd,
+                         getTemplateStrand(cmpH5, idxs), getTemplateStart(cmpH5, idxs),
+                         getTemplateEnd(cmpH5, idxs))
+  } else {
+    intervals <- unique(c(seq.int(from=refStart, to=refEnd, by = blockSize),
+                          refEnd+1))
+    do.call(c, lapply(2:length(intervals), function(j) {
+      idxs <- getReadsInRange(cmpH5, refSeq, refStart = intervals[j-1], refEnd = intervals[j]-1, idx)
+      getConsensusForReads(getAlignmentsRaw(cmpH5, idxs), refStart=intervals[j-1],
+                           refEnd = intervals[j]-1,
+                           getTemplateStrand(cmpH5, idxs),
+                           getTemplateStart(cmpH5, idxs),
+                           getTemplateEnd(cmpH5, idxs))
+    }))
+  }
 }
 
 getCallsInRange <- function(cmpH5, refSeq, refStart = 1, refEnd = getRefLength(cmpH5, refSeq), idx = 1:nrow(cmpH5)) {
@@ -450,9 +510,10 @@ getCallsInRange <- function(cmpH5, refSeq, refStart = 1, refEnd = getRefLength(c
 }
 
 computeConsensus <- function(calls) {
+  f <- base:::table # avoid dispatch and lookup.
   sapply(calls, function(a) {
     if (length(a) <= 0) return(NA)
-    t <- base:::table(a)
+    t <- f(a)
     m <- max(t) == t
     if (sum(m) == 1) {
       names(t)[m]
@@ -492,7 +553,6 @@ computeConsensus <- function(calls) {
   })
   as.character(do.call(c, res))
 }
-
 
 #############################################################################
 ##
@@ -536,3 +596,14 @@ getAlignmentsWithFeatures <- function(cmpH5, features, idx = seq.int(1, nrow(cmp
   return(dta)
 }
 
+#############################################################################
+##
+## Barcode Stuff
+##
+#############################################################################
+getBarcodeLabels <- function(cmpH5, idx = 1:nrow(cmpH5)) {
+  getH5Dataset(cmpH5, "AlnInfo/barcode")[idx]
+}
+getBarcodeScores <- function(cmpH5, idx = 1:nrow(cmpH5)) {
+  getH5Dataset(cmpH5, "AlnInfo/barcodeScore")[idx]
+}
