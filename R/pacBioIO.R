@@ -77,8 +77,10 @@ setClass("PacBioCmpH5", contains = "PacBioDataFile",
 setClass("PacBioBasH5", contains = "PacBioDataFile",
          representation = representation(
            baseEvents = "matrixOrNull",
-           baseCallsG = "H5ObjOrNull"),
-         prototype = prototype(baseEvents = NULL, baseCallsG = NULL))
+           baseCallsG = "H5ObjOrNull",
+           ccsBaseEvents = "matrixOrNull",
+           ccsBaseCallsG = "H5ObjOrNull"),
+         prototype = prototype(baseEvents = NULL, baseCallsG = NULL, ccsBaseEvents = NULL, ccsBaseCallsG = NULL))
 
 setClass("PacBioPlsH5", contains = "PacBioBasH5",
          representation = representation(
@@ -103,10 +105,6 @@ setGeneric("getAlignments", function(h5Obj, ...) {
   standardGeneric("getAlignments")
 })
 
-setGeneric("getQualityValue", function(h5Obj, ...) {
-  standardGeneric("getQualityValue")
-})
-
 setGeneric("getWidthInFrames", function(h5Obj, ...) {
   standardGeneric("getWidthInFrames")
 })
@@ -117,6 +115,29 @@ setGeneric("getMovieName", function(h5Obj, ...) {
 
 setGeneric("getSNR", function(h5Obj, ...) {
   standardGeneric("getSNR")
+})
+
+## The QualityValues are in both basH5 and cmpH5 files.
+setGeneric("getQualityValue", function(h5Obj, ...) {
+  standardGeneric("getQualityValue")
+})
+setGeneric("getDeletionQV", function(h5Obj, ...) {
+  standardGeneric("getDeletionQV")
+})
+setGeneric("getDeletionTag", function(h5Obj, ...) {
+  standardGeneric("getDeletionTag")
+})
+setGeneric("getInsertionQV", function(h5Obj, ...) {
+  standardGeneric("getInsertionQV")
+})
+setGeneric("getMergeQV", function(h5Obj, ...) {
+  standardGeneric("getMergeQV")
+})
+setGeneric("getSubstitutionQV", function(h5Obj, ...) {
+  standardGeneric("getSubstitutionQV")
+})
+setGeneric("getSubstitutionTag", function(h5Obj, ...) {
+  standardGeneric("getSubstitutionTag")
 })
 
 setMethod("initialize", "PacBioDataFile", function(.Object, ...) {
@@ -151,10 +172,9 @@ PacBioCmpH5 <- function(fileName) {
   .initMap <- function(grpName, names = c("ID", "Path")) {
     group <- getH5Group(obj, grpName)
     names(names) <- names
-    
     dta <- data.frame(lapply(names, function(nm) {
       if(h5DatasetExists(group, nm)) {
-        getH5Dataset(group, nm)[]
+        dset <- getH5Dataset(group, nm)[]
       } else {
         NA
       }
@@ -162,12 +182,11 @@ PacBioCmpH5 <- function(fileName) {
     rownames(dta) <- dta$ID
     return(dta)
   }
-  
   AlnGroup <- .initMap("AlnGroup")
   RefGroup <- .initMap("RefGroup", c("ID", "Path", "RefInfoID"))
   RefInfo <- .initMap("RefInfo", c("ID", "Name", "FullName", "Length", "MD5"))
-  MovieInfo <- .initMap("MovieInfo", c("ID", "Name", "Exp", "Run"))
-
+  MovieInfo <- .initMap("MovieInfo", c("ID", "Name", "Exp", "Run", "FrameRate"))
+  
   ## add some things to these data structures.
   AlnGroup$RefGroupName <- sapply(strsplit(AlnGroup$Path, "/"), "[[", 2)
   
@@ -270,6 +289,9 @@ getRefFullName <- function(cmpH5, refSeq) {
 getRefLength <- function(cmpH5, refSeq) {
   .getRefElt(cmpH5, refSeq, "Length")
 }
+getRefMD5 <- function(cmpH5, refSeq) {
+  .getRefElt(cmpH5, refSeq, "MD5")
+}
 .getRefBlock <- function(cmpH5, refSeq) {
   if (! isSorted(cmpH5)) {
     stop("cmpH5 file not sorted.")
@@ -282,6 +304,7 @@ setMethod("show", "PacBioCmpH5", function(object) {
   cat("N Alignments:", nrow(alnIndex(object)), "\n")
   cat("N ReadGroups:", nrow(alnGroup(object)), "\n")
   cat("N RefSeqs:",    nrow(refGroup(object)), "\n")
+  cat("N Bases:", sum(getReadLength(object)), "\n")
 })
 
 setMethod("summary", "PacBioCmpH5", function(object) {
@@ -314,7 +337,6 @@ setMethod("getMovieName", "PacBioCmpH5", function(h5Obj, idx = seq.int(1, nrow(h
   h5Obj$movieName[idx]
 })
 
-
 ##
 ## This stores the mapping from pairs to characters.
 ##
@@ -330,6 +352,31 @@ colnames(.bMap)       <- c("read", "reference")
 .bMap[.NUMBERS + 1, ] <- do.call(rbind, strsplit(.PAIRS, ""))
 
 .bMapC <- function(idx) .bMap[idx + 1, ]
+
+
+## XXX : I could probably benefit from just putting this at the
+## relevant point, but this trys to be general to the file. 
+.toNaN <- function(v) {
+  e <- v[[1]]
+  ##
+  ## XXX : This is wrong. needs to go in h5r.
+  ##
+  ## That ifelse doesn't preserve dims most likely, hence below,
+  ## however, alignments have dims.
+  ##
+  ## if (! is.null(dim(e))) {
+  ##   stop("Calling .toNaN in wrong context -- contact jbullard@pacificbiosciences.com")
+  ## }
+  f <- switch(class(e), "integer" = function(k) ifelse(k == 65535, NA, k), function(k) k)
+  lapply(v, f)
+}
+
+
+.hasAlignmentDataset <- function(cmpH5, dsName) {
+  ## The assumption here is that all groups either have or don't have
+  ## a particular dataset.
+  h5DatasetExists(cmpH5, base:::paste(cmpH5$alnGroupPath[1], dsName, sep = '/'))
+}
 
 ## 
 ## This reads a dataset which is structured like the alignments. It
@@ -361,7 +408,7 @@ colnames(.bMap)       <- c("read", "reference")
     }
     res[iidxs[[j]]] <- x
   }
-  return(res)
+  return(.toNaN(res))
 }
 
 
@@ -408,29 +455,98 @@ colnames(.bMap)       <- c("read", "reference")
       })
     }
   })
-
   ## make sure that the order of the results is same as the idx.
   a <- do.call(c, a)
   b <- character(length(a))
   b[do.call(c, lst)] <- names(a)
   a <- a[b]
   names(a) <- NULL
-  
-  return(a)
+
+  return(.toNaN(a))
 }
 
 getAlignmentsRaw <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "AlnArray")
-getIPD <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "IPD")
-getPulseWidth <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "PulseWidth")
-getStartTime <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "StartTime")
+
+.inFrames <- function(cmpH5) {
+  ("FrameRate" %in% colnames(movieInfo(cmpH5))) && all(! is.na(movieInfo(cmpH5)$FrameRate))
+}
+
+.convertToSeconds <-  function(cmpH5, idx, elts) {
+  if (.inFrames(cmpH5)) {
+    mapply(movieInfo(cmpH5)$FrameRate[match(getMovieName(cmpH5, idx), movieInfo(cmpH5)$Name)],
+           elts, FUN = function(fr, elt) {
+             elt/fr
+           }, SIMPLIFY = FALSE)
+  } else {
+    elts
+  }
+}
+
+.getFrameBasedDataset <- function(cmpH5, idx, name, unit = c("seconds", "frames")) {
+  d <- .getDatasetByIdxFast(cmpH5, idx, name)
+  if (match.arg(unit) == "seconds") {
+    .convertToSeconds(cmpH5, idx, d)
+  } else {
+    d
+  }
+}
+
+getIPD <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
+  .getFrameBasedDataset(cmpH5, idx, "IPD", unit)
+}
+
+getPulseWidth <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
+  .getFrameBasedDataset(cmpH5, idx, "PulseWidth", unit)
+}
+
+getStartTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
+  if (.hasAlignmentDataset(cmpH5, "StartTime")) 
+    .getDatasetByIdxFast(cmpH5, idx, "StartTime")
+  else if (.hasAlignmentDataset(cmpH5, "StartFrame")) {
+    .getFrameBasedDataset(cmpH5, idx, "StartFrame", "seconds")
+  } else {
+    stop("No appropriate dataset to compute StartTime")
+  }
+}
+
+getStartFrame <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
+  .getDatasetByIdxFast(cmpH5, idx, "StartFrame")
+}
+
+getCumulativeAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
+  mapply(getIPD(cmpH5, idx, unit), getPulseWidth(cmpH5, idx, unit), FUN = function(ipd, pw) {
+    v <- ipd + pw
+    v <- cumsum(ifelse(is.na(v), 0, v))
+    v[is.na(ipd)] <- NA
+    v
+  }, SIMPLIFY = FALSE)
+}
+
 getPkmid <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "pkmid")
 
 setMethod("getAlignments", "PacBioCmpH5", function(h5Obj, idx) {
   .getDatasetByIdxFast(h5Obj, idx, "AlnArray", convert = .bMapC)
 })
-
 setMethod("getQualityValue", "PacBioCmpH5", function(h5Obj, idx) {
   .getDatasetByIdxFast(h5Obj, idx, "QualityValue")
+})
+setMethod("getDeletionQV", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "DeletionQV")
+})
+setMethod("getDeletionTag", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "DeletionTag")
+})
+setMethod("getInsertionQV", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "InsertionQV")
+})
+setMethod("getMergeQV", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "MergeQV")
+})
+setMethod("getSubstitutionQV", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "SubstitutionQV")
+})
+setMethod("getSubstitutionTag", "PacBioCmpH5", function(h5Obj, idx) {
+  .getDatasetByIdxFast(h5Obj, idx, "SubstitutionTag")
 })
 
 getEviconsCalls <- function(cmpH5, refSeq, collapse = FALSE) {
@@ -470,19 +586,32 @@ setMethod("getMovieName", "PacBioBasH5", function(h5Obj) {
   getH5Attribute(getH5Group(h5Obj, "ScanData/RunInfo"), "MovieName")[]
 })
 
-setMethod("initialize", "PacBioBasH5", function(.Object, fileName = NULL) {
-  .Object <- callNextMethod(.Object, fileName = fileName)
-
-  baseCalls <- getH5Group(.Object, "PulseData/BaseCalls")
+.initBasEvents <- function(.Object, gname) {
+  baseCalls <- getH5Group(.Object, gname)
   bcZMW <- do.call(cbind, lapply(c("HoleNumber", "NumEvent", "HoleXY"), function(nm) {
     getH5Dataset(getH5Group(baseCalls, "ZMW"), nm)[]
   }))
   bcZMW <- cbind(bcZMW, "offset" = cumsum(c(1, bcZMW[-nrow(bcZMW), 2])))
   colnames(bcZMW) <- c("holeNumber", "numEvent", "x", "y", "offset")
-  
-  .Object@baseEvents  <- bcZMW
-  .Object@baseCallsG  <- baseCalls
+  list(events = bcZMW, group = baseCalls)
+}
 
+setMethod("initialize", "PacBioBasH5", function(.Object, fileName = NULL) {
+  .Object <- callNextMethod(.Object, fileName = fileName)
+
+  l <- .initBasEvents(.Object, "PulseData/BaseCalls")
+  .Object@baseEvents  <- l$events
+  .Object@baseCallsG  <- l$group
+
+  if (h5GroupExists(.Object, "PulseData/ConsensusBaseCalls")) {
+    ## XXX : These should always be there, but old files might not
+    ## have them - really I'm just delaying the breaking to the call
+    ## which needs them.
+    l <- .initBasEvents(.Object, "PulseData/ConsensusBaseCalls")
+    .Object@ccsBaseEvents  <- l$events
+    .Object@ccsBaseCallsG  <- l$group
+  }
+  
   return(.Object)
 })
 
@@ -500,37 +629,34 @@ PacBioBasH5 <- function(fileName) {
                "StartFrame", "WidthInFrames")
 
 PacBioPlsH5 <- function(fileName) {
-  obj <- new("PacBioPlsH5", fileName = fileName)
-  
-  pulseCalls <- getH5Group(obj, "PulseData/PulseCalls")
-  
-  pcZMW <- do.call(cbind, lapply(c("HoleNumber", "NumEvent", "HoleXY"), function(nm) {
-    getH5Dataset(getH5Group(pulseCalls, "ZMW"), nm)[]
-  }))
-  pcZMW <- cbind(pcZMW, "offset" = cumsum(c(1, pcZMW[-nrow(pcZMW), 2])))
-
-  colnames(pcZMW) <- c("holeNumber", "numEvent", "x", "y", "offset")
-  
-  obj@pulseEvents <- pcZMW
-  obj@pulseCallsG <- pulseCalls
-  
-  return(obj)
+  .Object <- new("PacBioPlsH5", fileName = fileName)
+  l <- .initBasEvents(.Object, "PulseData/PulseCalls")
+  .Object@pulseEvents <- l$events
+  .Object@pulseCallsG <- l$group
+  return(.Object)
 }
 
 getPulseEvents <- function(plsH5) plsH5@pulseEvents
 getBaseEvents  <- function(basH5) basH5@baseEvents
+getCCSEvents <- function(basH5) basH5@ccsBaseEvents
 getHoleNumbers <- function(basH5) basH5@baseEvents[, "holeNumber"]
+getCCSHoleNumbers <- function(basH5) basH5@ccsBaseEvents[, "holeNumber"]
 
 getBaselineSigma <- function(plsH5) {
   getH5Dataset(plsH5, "PulseData/PulseCalls/ZMW/BaselineSigma")
 }
 
-.getFromPlsH5 <- function(plsH5, plsH5GName = c("BaseCalls", "PulseCalls"), dsName,
+.getFromPlsH5 <- function(plsH5, plsH5GName = c("BaseCalls", "PulseCalls", "ConsensusBaseCalls"), dsName,
                           convert = NULL, holeNumbers = NULL) {
-  grp <- switch(match.arg(plsH5GName), "BaseCalls" = plsH5@baseCallsG,
-                "PulseCalls" = plsH5@pulseCallsG)
-  evt <- switch(match.arg(plsH5GName), "BaseCalls" = getBaseEvents(plsH5),
-                "PulseCalls" = getPulseEvents(plsH5))
+  grp <- switch(match.arg(plsH5GName),
+                "BaseCalls" = plsH5@baseCallsG,
+                "PulseCalls" = plsH5@pulseCallsG,
+                "ConsensusBaseCalls" = plsH5@ccsBaseCallsG)
+  evt <- switch(match.arg(plsH5GName),
+                "BaseCalls" = getBaseEvents(plsH5),
+                "PulseCalls" = getPulseEvents(plsH5),
+                "ConsensusBaseCalls" = getCCSEvents(plsH5))
+  
   d <- getH5Dataset(grp, dsName)
   
   if (missing(holeNumbers) || is.null(holeNumbers)) {
@@ -580,15 +706,9 @@ getBasecalls <- function(basH5, holeNumbers = getHoleNumbers(basH5))
   .getFromPlsH5(basH5, "BaseCalls", "Basecall", convert = .convertToLettersFromAscii,
                 holeNumbers = holeNumbers)
 
-getDeletionQV <- function(basH5, holeNumbers = getHoleNumbers(basH5))
-  .getFromPlsH5(basH5, "BaseCalls", "DeletionQV", holeNumbers = holeNumbers)
-
-getDeletionTag <- function(basH5, holeNumbers = getHoleNumbers(basH5))
-  .getFromPlsH5(basH5, "BaseCalls", "DeletionTag", convert = .convertToLettersFromAscii,
+getCCSBasecalls <- function(basH5, holeNumbers = getCCSHoleNumbers(basH5))
+  .getFromPlsH5(basH5, "ConsensusBaseCalls", "Basecall", convert = .convertToLettersFromAscii,
                 holeNumbers = holeNumbers)
-
-getInsertionQV <- function(basH5, holeNumbers = getHoleNumbers(basH5))
-  .getFromPlsH5(basH5, "BaseCalls", "InsertionQV", holeNumbers = holeNumbers)
 
 getPreBaseFrames <- function(basH5, holeNumbers = getHoleNumbers(basH5))
   .getFromPlsH5(basH5, "BaseCalls", "PreBaseFrames", holeNumbers = holeNumbers)
@@ -596,18 +716,31 @@ getPreBaseFrames <- function(basH5, holeNumbers = getHoleNumbers(basH5))
 getPulseIndex <- function(basH5, holeNumbers = getHoleNumbers(basH5))
   .getFromPlsH5(basH5, "BaseCalls", "PulseIndex", holeNumbers = holeNumbers)
 
-getSubstitutionQV <- function(basH5, holeNumbers = getHoleNumbers(basH5))
-  .getFromPlsH5(basH5, "BaseCalls", "SubstitutionQV", holeNumbers = holeNumbers)
-
-getSubstitutionTag <- function(basH5, holeNumbers = getHoleNumbers(basH5))
-  .getFromPlsH5(basH5, "BaseCalls", "SubstitutionTag", holeNumbers = holeNumbers)
-
-setMethod("getQualityValue", "PacBioPlsH5", function(h5Obj, ...) {
-  .getFromPlsH5(h5Obj, "BaseCalls", "QualityValue", ...)
-})
-
 setMethod("getWidthInFrames", "PacBioBasH5", function(h5Obj, ...) {
   .getFromPlsH5(h5Obj, "BaseCalls", "WidthInFrames", ...)
+})
+
+## quality values
+setMethod("getQualityValue", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "QualityValue", ...)
+})
+setMethod("getDeletionQV", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "DeletionQV", ...)
+})
+setMethod("getDeletionTag", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "DeletionTag", convert = .convertToLettersFromAscii, ...)
+})
+setMethod("getInsertionQV", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "InsertionQV", holeNumbers = holeNumbers, ...)
+})
+setMethod("getMergeQV", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "MergeQV", ...)
+})
+setMethod("getSubstitutionQV", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "SubstitutionQV", ...)
+})
+setMethod("getSubstitutionTag", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(h5Obj, "BaseCalls", "SubstitutionTag", convert = .convertToLettersFromAscii, ...)
 })
 
 getChannel <- function(plsH5, holeNumbers = getHoleNumbers(plsH5))
@@ -632,7 +765,6 @@ getStartFrame <- function(plsH5, holeNumbers = getHoleNumbers(plsH5))
 setMethod("getWidthInFrames", "PacBioPlsH5", function(h5Obj, ...) {
   .getFromPlsH5(h5Obj, "PulseCalls", "WidthInFrames", ...)
 })
-
 
 ## ############################################################################
 ##

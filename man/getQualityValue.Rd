@@ -2,6 +2,25 @@
 \alias{getQualityValue}
 \alias{getQualityValue,PacBioCmpH5-method}
 \alias{getQualityValue,PacBioPlsH5-method}
+\alias{getDeletionQV}
+\alias{getDeletionQV,PacBioCmpH5-method}
+\alias{getDeletionQV,PacBioBasH5-method}
+\alias{getDeletionTag}
+\alias{getDeletionTag,PacBioCmpH5-method}
+\alias{getDeletionTag,PacBioBasH5-method}
+\alias{getInsertionQV}
+\alias{getInsertionQV,PacBioCmpH5-method}
+\alias{getInsertionQV,PacBioBasH5-method}
+\alias{getMergeQV}
+\alias{getMergeQV,PacBioCmpH5-method}
+\alias{getMergeQV,PacBioBasH5-method}
+\alias{getSubstitutionQV}
+\alias{getSubstitutionQV,PacBioCmpH5-method}
+\alias{getSubstitutionQV,PacBioBasH5-method}
+\alias{getSubstitutionTag}
+\alias{getSubstitutionTag,PacBioCmpH5-method}
+\alias{getSubstitutionTag,PacBioBasH5-method}
+
 \title{
   Return Classifier Quality Values
 }

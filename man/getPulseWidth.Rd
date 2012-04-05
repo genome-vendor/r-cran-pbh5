@@ -7,7 +7,7 @@
   'getPulseWidth' computes the pulsewidth for each base.
 }
 \usage{
-getPulseWidth(cmpH5, idx)
+  getPulseWidth(cmpH5, idx, unit = c("seconds", "frames"))
 }
 \arguments{
   \item{cmpH5}{
@@ -16,6 +16,10 @@ getPulseWidth(cmpH5, idx)
   \item{idx}{
     The indices of the alignments to retrieve.
   }
+  \item{unit}{
+    Whether you want seconds or frames.
+  }
+
 }
 \details{
   Pulsewidth is computed in seconds.

@@ -1,15 +1,9 @@
 \name{getBasecalls}
 \alias{getBasecalls}
-\alias{getDeletionTag}
-\alias{getDeletionQV}
-\alias{getInsertionQV}
 \alias{getPulseIndex}
-\alias{getPreBaseDeletionQV}
-\alias{getSubstitutionTag}
-\alias{getSubstitutionQV}
 \alias{getPreBaseFrames}
 \title{
-  Get Basecall-level Metrics From pls.h5 or bas.h5 Files.
+  Get Basecall-level Data From pls.h5 or bas.h5 Files.
 }
 \description{
   These functions take an object of class bas.h5 or pls.h5 and return

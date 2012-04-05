@@ -89,8 +89,8 @@ trueAndNA <- function(a, b) {
 }
 
 TH("CMP: Alignments And Features 1", {
-  alnsAndFeats <- getAlignmentsWithFeatures(cmpH5, features = c("AlnArray", "IPD",
-                                                     "PulseWidth", "QualityValue"))
+  alnsAndFeats <- getAlignmentsWithFeatures(cmpH5, fxs = list("AlnArray" = getAlignmentsRaw, "IPD" = getIPD,
+                                                     "PulseWidth" = getPulseWidth, "QualityValue" = getQualityValue))
   alns <- getAlignments(cmpH5)
   all(mapply(function(a,b) {
     all(a == b[, c("read", "reference")])
@@ -98,7 +98,8 @@ TH("CMP: Alignments And Features 1", {
 })
 
 TH("CMP: Alignments And Features 2", {
-  alnsAndFeats <- getAlignmentsWithFeatures(cmpH5, features = c("AlnArray", "IPD", "PulseWidth","QualityValue"))
+  alnsAndFeats <- getAlignmentsWithFeatures(cmpH5, fxs = list("AlnArray" = getAlignmentsRaw, "IPD" = getIPD,
+                                                     "PulseWidth" = getPulseWidth, "QualityValue" = getQualityValue))
   trueAndNA(getRangeInH5WithOffsets(cmpH5, 1, ds = "IPD"), alnsAndFeats[[1]][,"IPD"])
 })
 

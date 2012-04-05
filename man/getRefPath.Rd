@@ -3,6 +3,7 @@
 \alias{getRefName}
 \alias{getRefLength}
 \alias{getRefFullName}
+\alias{getRefMD5}
 \title{
   Get data from refGroup table.
 }
@@ -25,6 +26,7 @@
   require(pbh5)
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5", package = "pbh5"))
   getRefPath(cmpH5, 1) == getRefPath(cmpH5, "ref000001")
+  getRefMD5(cmpH5, 1)
 }
 \keyword{classes}
 

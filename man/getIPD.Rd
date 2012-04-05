@@ -4,10 +4,10 @@
   Compute the IPD
 }
 \description{
-  'getIPD' computes the inter-pulse distance for each base.
+  'getIPD' computes the inter-pulse duration for each base.
 }
 \usage{
-  getIPD(cmpH5, idx)
+  getIPD(cmpH5, idx, unit = c("seconds", "frames"))
 }
 \arguments{
   \item{cmpH5}{
@@ -15,6 +15,9 @@
   }
   \item{idx}{
     The indices of the alignments to retrieve.
+  }
+  \item{unit}{
+    Whether you want seconds or frames.
   }
 }
 \details{

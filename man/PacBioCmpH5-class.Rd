@@ -6,6 +6,7 @@
 \alias{matrixOrNull-class}
 \alias{stringOrNull-class}
 \alias{head,PacBioCmpH5-method}
+\alias{colnames,PacBioCmpH5-method}
 \alias{nrow,PacBioCmpH5-method}
 \alias{show,PacBioCmpH5-method}
 \alias{summary,PacBioCmpH5-method}
@@ -134,7 +135,7 @@ mosaicplot(prop.table(table(read = a[,1], reference = a[,2])))
 
 ## Some of the most useful functionality is via the
 ## getAlignmentsWithFeatures function.
-aAndF <- getAlignmentsWithFeatures(cmpH5, features = c("IPD"), idx = 1, collapse = TRUE)
+aAndF <- getAlignmentsWithFeatures(cmpH5, idx = 1, fxs = list(IPD = getIPD), collapse = TRUE)
 head(aAndF)
 boxplot(IPD ~ reference, data = aAndF, log = 'y', ylim = c(.05, 10))
 }

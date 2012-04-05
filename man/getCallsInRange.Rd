@@ -16,7 +16,7 @@ getCallsInRange(cmpH5, refSeq, refStart = 1, refEnd =
                 getRefLength(cmpH5, refSeq), idx = 1:nrow(cmpH5))
 
 getConsensusInRange(cmpH5, refSeq, refStart = 1, refEnd = getRefLength(cmpH5, 
-                    refSeq), idx = 1:nrow(cmpH5))
+                    refSeq), idx = 1:nrow(cmpH5), blockSize = NA)
 
 getCallsForReads(rawAlns, refStart, refEnd, strands, starts, ends) 
 
@@ -28,32 +28,36 @@ getConsensusForReads(rawAlns, refStart, refEnd, strands, starts, ends,
     An object of class \code{PacBioCmpH5}.
   }
   \item{refSeq}{
-  the reference sequence to retrieve.
-}
+    the reference sequence to retrieve.
+  }
   \item{refStart}{
-  The reference start point.
-}
+    The reference start point.
+  }
   \item{refEnd}{
-  The reference end point.
-}
+    The reference end point.
+  }
   \item{idx}{
     The indices of the alignments to retrieve.
   }
- \item{rawAlns}{
-  The raw alignments to retrive with function 'getAlignmentsRaw.' 
-}
- \item{strands}{
-%%     ~~Describe \code{idx} here~~
-}
- \item{starts}{
-%%     ~~Describe \code{idx} here~~
-}
- \item{ends}{
-%%     ~~Describe \code{idx} here~~
-}
- \item{fast}{
-%%     ~~Describe \code{idx} here~~
-}
+  \item{rawAlns}{
+    The raw alignments to retrive with function 'getAlignmentsRaw.' 
+  }
+  \item{strands}{
+    The low-level strand vector corresponding to the rawAlns
+  }
+  \item{starts}{
+    The low-level starts vector corresponding to the rawAlns
+  }
+  \item{ends}{
+    The low-level ends vector corresponding to the rawAlns
+  }
+  \item{fast}{
+    There is a miniscule difference between the algorithm
+    implementation. 
+  }
+  \item{blockSize}{
+    This allows someone to chunk the computation.
+  }
 }
 \value{
   Functions 'getCallsInRange' and 'getCallsForReads'  return a lists of

@@ -32,12 +32,11 @@ getLocalPolymerizationRate(cmpH5, idx = seq.int(1, nrow(cmpH5)), binFunction = f
 }
 \examples{
   require(pbh5)
-  cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
-  package = "pbh5"))
+  gc()
+  cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5", package = "pbh5"))
   \dontrun{
    localRate <- getLocalPolymerizationRate(cmpH5, idx = 1:10)
-   boxplot(localRate, ylab = "Local Polymerization Rate", xlab = "Index
-Numbers")
+   boxplot(localRate, ylab = "Local Polymerization Rate", xlab = "IndexNumbers")
   }
 }
 \keyword{datasets}

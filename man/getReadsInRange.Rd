@@ -32,13 +32,10 @@ getReadsInRange(cmpH5, refSeq, refStart = 1, refEnd = NA, idx = 1:nrow(cmpH5))
   'getReadsInRange' returns a vector of integers.
 }
 \examples{
-  require(pbh5)
-  cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
-  package = "pbh5"))
+  cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5", package = "pbh5"))
   readsInRange <- getReadsInRange(cmpH5, 1, 100, 200)
   class(readsInRange)
   head(readsInRange)
-
 }
 \keyword{datasets}
 

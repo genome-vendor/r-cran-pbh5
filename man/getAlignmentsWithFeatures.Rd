@@ -7,14 +7,15 @@
   Retrieve alignments with attendant pulse features.
 }
 \usage{
-getAlignmentsWithFeatures(cmpH5, features, idx = seq.int(1, nrow(cmpH5)), collapse = FALSE)
+  getAlignmentsWithFeatures(cmpH5, idx = seq.int(1, nrow(cmpH5)), fxs = list(ipd = getIPD), collapse = FALSE)
 }
 \arguments{
   \item{cmpH5}{
     An object of class \code{PacBioCmpH5}.
   }
-  \item{features}{
-    A character vector naming the additional features.
+  \item{fxs}{
+    A list with functions of the form \code{f(cmpH5, idx)} returning a
+    list of length \code{length(idx)}. 
   }
   \item{idx}{
     The indices of the alignments to return.
@@ -32,7 +33,7 @@ getAlignmentsWithFeatures(cmpH5, features, idx = seq.int(1, nrow(cmpH5)), collap
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
   package = "pbh5"))
   alnsPlusFeatures <- getAlignmentsWithFeatures(cmpH5,
-        features = c("IPD","PulseWidth"), idx = 1, collapse = TRUE)
+        fxs = c("IPD" = getIPD,"PulseWidth"=getPulseWidth), idx = 1, collapse = TRUE)
   head(alnsPlusFeatures)
   boxplot(IPD ~ reference, data = alnsPlusFeatures, log = 'y',
            ylim = c(.05, 10), main = "Distribution of IPDs Conditioned on Base")

@@ -82,13 +82,6 @@ getMachineName <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
   sapply(strsplit(alnIndex(cmpH5)[idx, "movieName"], "_"), "[", 3)
 }
 
-getAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
-  .convertToSeconds(cmpH5, .Call("PBR_advance_time",
-                                 getStartTime(cmpH5, idx),
-                                 getAlignmentsRaw(cmpH5, idx),
-                                 PACKAGE = "pbh5"))
-}
-
 getTemplateSpan <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
   cmpH5$tEnd[idx] - cmpH5$tStart[idx] + 1
 }
@@ -97,25 +90,23 @@ getAlignedLength <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
   cmpH5$offsetEnd[idx] - cmpH5$offsetStart[idx] + 1
 }
 
+getAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
+  .Call("PBR_advance_time", getCumulativeAdvanceTime(cmpH5, idx), getAlignmentsRaw(cmpH5, idx), PACKAGE = "pbh5")
+}
+
 getPolymerizationRate <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
-  totalTime <- sapply(getStartTime(cmpH5, idx = idx), function(a) {
+  totalTime <- sapply(getCumulativeAdvanceTime(cmpH5, idx = idx), function(a) {
     a[length(a)] - a[1]
   })
   getTemplateSpan(cmpH5, idx)/totalTime
-}
-
-getNumPasses <- function(cmpH5, idx = 1:nrow(cmpH5)) {
-  stopifnot(h5DatasetExists(cmpH5, "AlnInfo/NumPasses"))
-  getH5Dataset(cmpH5, "AlnInfo/NumPasses")[idx]
 }
 
 getLocalPolymerizationRate <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)),
                                        binFunction = function(aln) {
                                          cut(seq.int(1, nrow(aln)), 10)
                                        }) {
-  ## XXX : add John Eid's pulse-width + IPD version.
-  alns <- getAlignments(cmpH5, idx = idx)
-  stimes <- getStartTime(cmpH5, idx = idx)
+ alns <- getAlignments(cmpH5, idx = idx)
+  stimes <- getCumulativeAdvanceTime(cmpH5, idx = idx)
   mapply(function(aln, stime) {
     tapply(seq.int(1, nrow(aln)), binFunction(aln), function(i) {
       sum(aln[i,2] != '-')/(max(stime[i], na.rm = TRUE) - min(stime[i], na.rm = T))
@@ -123,6 +114,10 @@ getLocalPolymerizationRate <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)),
   }, alns, stimes, SIMPLIFY = FALSE)
 }
 
+getNumPasses <- function(cmpH5, idx = 1:nrow(cmpH5)) {
+  stopifnot(h5DatasetExists(cmpH5, "AlnInfo/NumPasses"))
+  getH5Dataset(cmpH5, "AlnInfo/NumPasses")[idx]
+}
 
 #############################################################################
 ##
@@ -559,31 +554,25 @@ computeConsensus <- function(calls) {
 ## Access and Manipulation
 ##
 #############################################################################
-.getAlignmentsWithFeaturesAsDataFrame <- function(cmpH5, features, idx) {
+.getAlignmentsWithFeaturesAsDataFrame <- function(cmpH5, idx, features) {
    alns <- getAlignments(cmpH5, idx)
-
-   ds <- lapply(features, function(fname) {
-     do.call(c, .getDatasetByIdxFast(cmpH5, idx, dsName = fname))
+   ds <- lapply(features, function(fx) {
+     do.call(c, fx(cmpH5, idx)) 
    })
-   names(ds) <- features
    idx <- rep(idx, sapply(alns, nrow))
    alns <- do.call(rbind, alns)
-
    data.frame(alns, idx, ds, row.names = NULL, stringsAsFactors = FALSE)
 }
 
-getAlignmentsWithFeatures <- function(cmpH5, features, idx = seq.int(1, nrow(cmpH5)),
-                                      collapse = FALSE) {
+getAlignmentsWithFeatures <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)),
+                                      fxs = list('ipd' = getIPD), collapse = FALSE) {
   if (collapse) {
-    dta <- .getAlignmentsWithFeaturesAsDataFrame(cmpH5, features, idx)
+    dta <- .getAlignmentsWithFeaturesAsDataFrame(cmpH5, idx, fxs)
   } else {
     alns <- getAlignments(cmpH5, idx)
-
-    ds <- lapply(features, function(fname) {
-      .getDatasetByIdxFast(cmpH5, idx, dsName = fname)
+    ds <- lapply(fxs, function(fx) {
+      fx(cmpH5, idx)
     })
-    names(ds) <- features
-
     ds <- lapply(1:length(idx), function(i) {
       do.call(cbind, lapply(ds, function(zds) zds[[i]]))
     })

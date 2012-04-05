@@ -30,6 +30,8 @@
   \describe{
     \item{\code{baseEvents}:}{Object of class \code{"matrixOrNull"}}
     \item{\code{baseCallsG}:}{Object of class \code{"H5ObjOrNull"}}
+    \item{\code{ccsBaseEvents}:}{Object of class \code{"matrixOrNull"}}
+    \item{\code{ccsBaseCallsG}:}{Object of class \code{"H5ObjOrNull"}}
     \item{\code{version}:}{Object of class \code{"stringOrNull"}}
     \item{\code{fileName}:}{Object of class \code{"character"}}
     \item{\code{ePtr}:}{Object of class \code{"externalptr"}}

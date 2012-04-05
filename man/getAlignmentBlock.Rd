@@ -28,6 +28,7 @@
 }
 \examples{
   require(pbh5)
+  gc()
   cmpH5 <- PacBioCmpH5(system.file("h5_files",  "aligned_reads.cmp.h5",
   package = "pbh5"))
   getAlignmentBlock(cmpH5, 1, 20, 40)
