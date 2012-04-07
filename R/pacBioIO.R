@@ -109,6 +109,10 @@ setGeneric("getWidthInFrames", function(h5Obj, ...) {
   standardGeneric("getWidthInFrames")
 })
 
+setGeneric("getStartFrame", function(h5Obj, ...) {
+  standardGeneric("getStartFrame")
+})
+
 setGeneric("getMovieName", function(h5Obj, ...) {
   standardGeneric("getMovieName")
 })
@@ -353,25 +357,27 @@ colnames(.bMap)       <- c("read", "reference")
 
 .bMapC <- function(idx) .bMap[idx + 1, ]
 
-
-## XXX : I could probably benefit from just putting this at the
-## relevant point, but this trys to be general to the file. 
-.toNaN <- function(v) {
-  e <- v[[1]]
-  ##
-  ## XXX : This is wrong. needs to go in h5r.
-  ##
-  ## That ifelse doesn't preserve dims most likely, hence below,
-  ## however, alignments have dims.
-  ##
-  ## if (! is.null(dim(e))) {
-  ##   stop("Calling .toNaN in wrong context -- contact jbullard@pacificbiosciences.com")
-  ## }
-  f <- switch(class(e), "integer" = function(k) ifelse(k == 65535, NA, k), function(k) k)
-  lapply(v, f)
+.geq.1.3.1 <- function(cmpH5) {
+  bits <- as.integer(strsplit(getVersion(cmpH5), "\\.")[[1]][1:3])
+  return(sum(bits * 100^(3:1)) >= sum(c(1, 3, 1) * 100^(3:1)))
 }
 
-
+.toNA <- function(cmpH5, v, naValue) {
+  if (.geq.1.3.1(cmpH5)) {
+    if (is.na(naValue)) {
+      v
+    } else {
+      if (is.nan(naValue)) {
+        lapply(v, function(e) ifelse(is.nan(e), NA, e))
+      } else {
+        lapply(v, function(e) ifelse(e == naValue, NA, e))
+      }
+    }
+  } else {
+    v
+  }
+}
+  
 .hasAlignmentDataset <- function(cmpH5, dsName) {
   ## The assumption here is that all groups either have or don't have
   ## a particular dataset.
@@ -383,7 +389,7 @@ colnames(.bMap)       <- c("read", "reference")
 ## looks overly complicated because we read the file in an organized
 ## fashion to avoid reading the file too much
 ##
-.getDatasetByIdxFast <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), dsName, convert = NULL) {
+.getDatasetByIdxFast <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), dsName, convert = NULL, naValue = NA) {
   if (missing(idx))
     idx <- seq.int(1, nrow(cmpH5))
   if (length(idx) == 0)
@@ -408,15 +414,14 @@ colnames(.bMap)       <- c("read", "reference")
     }
     res[iidxs[[j]]] <- x
   }
-  return(.toNaN(res))
+  return(.toNA(cmpH5, res, naValue))
 }
-
 
 ##
 ## This was the old function which still works for datasets with
 ## dimensions, hence it is preserved.
 ## 
-.getDatasetByIdx <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), dsName, convert = NULL) {
+.getDatasetByIdx <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), dsName, convert = NULL, naValue = NA) {
   if (missing(idx))
     idx <- seq.int(1, nrow(cmpH5))
   if (length(idx) == 0)
@@ -462,10 +467,8 @@ colnames(.bMap)       <- c("read", "reference")
   a <- a[b]
   names(a) <- NULL
 
-  return(.toNaN(a))
+  return(.toNA(cmpH5, a, naValue))
 }
-
-getAlignmentsRaw <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "AlnArray")
 
 .inFrames <- function(cmpH5) {
   ("FrameRate" %in% colnames(movieInfo(cmpH5))) && all(! is.na(movieInfo(cmpH5)$FrameRate))
@@ -482,8 +485,8 @@ getAlignmentsRaw <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "AlnAr
   }
 }
 
-.getFrameBasedDataset <- function(cmpH5, idx, name, unit = c("seconds", "frames")) {
-  d <- .getDatasetByIdxFast(cmpH5, idx, name)
+.getFrameBasedDataset <- function(cmpH5, idx, name, unit = c("seconds", "frames"), naValue = 0x7fffffff) {
+  d <- .getDatasetByIdxFast(cmpH5, idx, name, naValue = naValue)
   if (match.arg(unit) == "seconds") {
     .convertToSeconds(cmpH5, idx, d)
   } else {
@@ -492,26 +495,26 @@ getAlignmentsRaw <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "AlnAr
 }
 
 getIPD <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
-  .getFrameBasedDataset(cmpH5, idx, "IPD", unit)
+  .getFrameBasedDataset(cmpH5, idx, "IPD", unit, naValue = 0xffff)
 }
 
 getPulseWidth <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
-  .getFrameBasedDataset(cmpH5, idx, "PulseWidth", unit)
+  .getFrameBasedDataset(cmpH5, idx, "PulseWidth", unit, naValue = 0xffff)
 }
 
-getStartTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
+getStartTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
   if (.hasAlignmentDataset(cmpH5, "StartTime")) 
-    .getDatasetByIdxFast(cmpH5, idx, "StartTime")
+    .getDatasetByIdxFast(cmpH5, idx, "StartTime", naValue = 0x7fffffff)
   else if (.hasAlignmentDataset(cmpH5, "StartFrame")) {
-    .getFrameBasedDataset(cmpH5, idx, "StartFrame", "seconds")
+    .getFrameBasedDataset(cmpH5, idx, "StartFrame", unit)
   } else {
     stop("No appropriate dataset to compute StartTime")
   }
 }
 
-getStartFrame <- function(cmpH5, idx = seq.int(1, nrow(cmpH5))) {
-  .getDatasetByIdxFast(cmpH5, idx, "StartFrame")
-}
+setMethod("getStartFrame", "PacBioCmpH5", function(h5Obj, idx = seq.int(1, nrow(h5Obj))) {
+  .getDatasetByIdxFast(h5Obj, idx, "StartFrame", naValue = 0x7fffffff)
+})
 
 getCumulativeAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit = c("seconds", "frames")) {
   mapply(getIPD(cmpH5, idx, unit), getPulseWidth(cmpH5, idx, unit), FUN = function(ipd, pw) {
@@ -523,27 +526,28 @@ getCumulativeAdvanceTime <- function(cmpH5, idx = seq.int(1, nrow(cmpH5)), unit 
 }
 
 getPkmid <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "pkmid")
+getAlignmentsRaw <- function(cmpH5, idx) .getDatasetByIdxFast(cmpH5, idx, "AlnArray")
 
 setMethod("getAlignments", "PacBioCmpH5", function(h5Obj, idx) {
   .getDatasetByIdxFast(h5Obj, idx, "AlnArray", convert = .bMapC)
 })
 setMethod("getQualityValue", "PacBioCmpH5", function(h5Obj, idx) {
-  .getDatasetByIdxFast(h5Obj, idx, "QualityValue")
+  .getDatasetByIdxFast(h5Obj, idx, "QualityValue", naValue = 255)
 })
 setMethod("getDeletionQV", "PacBioCmpH5", function(h5Obj, idx) {
-  .getDatasetByIdxFast(h5Obj, idx, "DeletionQV")
+  .getDatasetByIdxFast(h5Obj, idx, "DeletionQV", naValue = 255)
 })
 setMethod("getDeletionTag", "PacBioCmpH5", function(h5Obj, idx) {
   .getDatasetByIdxFast(h5Obj, idx, "DeletionTag")
 })
 setMethod("getInsertionQV", "PacBioCmpH5", function(h5Obj, idx) {
-  .getDatasetByIdxFast(h5Obj, idx, "InsertionQV")
+  .getDatasetByIdxFast(h5Obj, idx, "InsertionQV", naValue = 255)
 })
 setMethod("getMergeQV", "PacBioCmpH5", function(h5Obj, idx) {
-  .getDatasetByIdxFast(h5Obj, idx, "MergeQV")
+  .getDatasetByIdxFast(h5Obj, idx, "MergeQV", naValue = 255)
 })
 setMethod("getSubstitutionQV", "PacBioCmpH5", function(h5Obj, idx) {
-  .getDatasetByIdxFast(h5Obj, idx, "SubstitutionQV")
+  .getDatasetByIdxFast(h5Obj, idx, "SubstitutionQV", naValue = 255)
 })
 setMethod("getSubstitutionTag", "PacBioCmpH5", function(h5Obj, idx) {
   .getDatasetByIdxFast(h5Obj, idx, "SubstitutionTag")
@@ -731,7 +735,7 @@ setMethod("getDeletionTag", "PacBioBasH5", function(h5Obj, ...) {
   .getFromPlsH5(h5Obj, "BaseCalls", "DeletionTag", convert = .convertToLettersFromAscii, ...)
 })
 setMethod("getInsertionQV", "PacBioBasH5", function(h5Obj, ...) {
-  .getFromPlsH5(h5Obj, "BaseCalls", "InsertionQV", holeNumbers = holeNumbers, ...)
+  .getFromPlsH5(h5Obj, "BaseCalls", "InsertionQV", ...)
 })
 setMethod("getMergeQV", "PacBioBasH5", function(h5Obj, ...) {
   .getFromPlsH5(h5Obj, "BaseCalls", "MergeQV", ...)
@@ -759,9 +763,10 @@ getMidSignal <- function(plsH5, holeNumbers = getHoleNumbers(plsH5))
   .getFromPlsH5(plsH5, "PulseCalls", "MidSignal", holeNumbers = holeNumbers)
 getMidStdDevSignal <- function(plsH5, holeNumbers = getHoleNumbers(plsH5))
   .getFromPlsH5(plsH5, "PulseCalls", "MidStdDevSignal", holeNumbers = holeNumbers)
-getStartFrame <- function(plsH5, holeNumbers = getHoleNumbers(plsH5))
-  .getFromPlsH5(plsH5, "PulseCalls", "StartFrame", holeNumbers = holeNumbers)
 
+setMethod("getStartFrame", "PacBioBasH5", function(h5Obj, ...) {
+  .getFromPlsH5(plsH5, "PulseCalls", "StartFrame", ...)
+})
 setMethod("getWidthInFrames", "PacBioPlsH5", function(h5Obj, ...) {
   .getFromPlsH5(h5Obj, "PulseCalls", "WidthInFrames", ...)
 })

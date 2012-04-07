@@ -1,6 +1,7 @@
 \name{getStartTime}
 \alias{getStartTime}
 \alias{getAdvanceTime}
+
 \title{
   Computes the Start Time of Polymerization
 }
@@ -10,7 +11,7 @@
   function might not succeed.
 }
 \usage{
-getStartTime(cmpH5, idx)
+  getStartTime(cmpH5, idx, unit = c("seconds", "frames"))
 }
 \arguments{
   \item{cmpH5}{
@@ -18,6 +19,9 @@ getStartTime(cmpH5, idx)
   }
   \item{idx}{
     The indices of the alignments to return.
+  }
+  \item{unit}{
+    The unit of the returned values
   }
 }
 \value{

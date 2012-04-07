@@ -18,6 +18,7 @@
 \alias{refGroup}
 \alias{refInfo}
 \alias{movieInfo}
+\alias{getStartFrame,PacBioCmpH5-method}
 \alias{getSNR,PacBioCmpH5-method}
 \alias{getEviconsCalls}
 \alias{getEviconsConfidence}

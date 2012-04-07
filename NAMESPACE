@@ -123,5 +123,6 @@ exportMethods(getSNR,
               getSubstitutionQV,
               getSubstitutionTag,
               getWidthInFrames,
+              getStartFrame,
               getNumEvent)
               

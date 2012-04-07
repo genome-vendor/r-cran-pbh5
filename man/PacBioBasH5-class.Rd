@@ -9,6 +9,7 @@
 \alias{getMovieName,PacBioBasH5-method}
 \alias{getNumEvent,PacBioBasH5-method}
 \alias{getNumEvent,PacBioPlsH5-method}
+\alias{getStartFrame,PacBioBasH5-method}
 \alias{getSNR,PacBioBasH5-method}
 \alias{getSNR}
 \alias{getNumEvent}
